@@ -38,6 +38,7 @@ const val KEY_SPEED_ACCURACY = "speed_accuracy"
 const val KEY_FAVORITES = "favorites"
 
 const val KEY_TARGET_APPS = "target_apps"
+const val KEY_TARGET_APP_COORDINATES = "target_app_coordinates"
 
 const val KEY_HIDE_FAKE_LOCATION_TOAST = "hide_fake_location_toast"
 

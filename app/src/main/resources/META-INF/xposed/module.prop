@@ -1,3 +1,4 @@
-minApiVersion=101
-targetApiVersion=101
+minApiVersion=102
+targetApiVersion=102
 staticScope=false
+description=开发者分应用定位与轨迹模拟调试工具 (API 102)

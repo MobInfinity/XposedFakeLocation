@@ -206,4 +206,12 @@
     <string name="about_contributors_error">无法加载贡献者。</string>
     <string name="about_contributors_empty">未找到贡献者。</string>
     <string name="about_contributors_retry">重试</string>
+
+<!-- Additional translations can be added here if not yet present -->
+<string name="coordinate_system_title">坐标系</string>
+<string name="coordinate_system_wgs84">WGS-84 (标准 GPS)</string>
+<string name="coordinate_system_gcj02">GCJ-02 (高德/火星坐标系)</string>
+<string name="coordinate_system_bd09">BD-09 (百度坐标系)</string>
+<string name="unit_meters">米</string>
+<string name="unit_meters_per_second">米/秒</string>
 </resources>

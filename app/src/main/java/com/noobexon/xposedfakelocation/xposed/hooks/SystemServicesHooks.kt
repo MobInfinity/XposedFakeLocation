@@ -8,6 +8,10 @@ import android.os.Build
 import android.telephony.CellInfo
 import android.util.ArrayMap
 import android.util.Log
+import com.noobexon.xposedfakelocation.xposed.utils.CoordinateConverter
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.noobexon.xposedfakelocation.data.KEY_TARGET_APP_COORDINATES
 import com.noobexon.xposedfakelocation.xposed.utils.LocationUtil
 import com.noobexon.xposedfakelocation.xposed.utils.PreferencesUtil
 import dalvik.system.PathClassLoader
@@ -22,6 +26,30 @@ class SystemServicesHooks(
     private val classLoader: ClassLoader
 ) {
     private val tag = "[SystemServicesHooks]"
+    private var cachedMap: Map<String, String>? = null
+    private var lastJson: String? = null
+
+    private fun getConvertedCoordinateForPackage(packageName: String, lat: Double, lon: Double): Pair<Double, Double> {
+        val prefs = PreferencesUtil.getPrefs() ?: return Pair(lat, lon)
+        val json = prefs.getString(KEY_TARGET_APP_COORDINATES, null) ?: return Pair(lat, lon)
+        if (json != lastJson || cachedMap == null) {
+            try {
+                val type = object : TypeToken<Map<String, String>>() {}.type
+                cachedMap = Gson().fromJson(json, type)
+                lastJson = json
+            } catch (e: Exception) {
+                cachedMap = emptyMap()
+            }
+        }
+        val map = cachedMap ?: emptyMap()
+        val sysStr = map[packageName] ?: "WGS84"
+        return when (sysStr) {
+            "GCJ02" -> Pair(lat, lon)
+            "BD09" -> CoordinateConverter.gcj02ToBd09(lat, lon)
+            else -> CoordinateConverter.gcj02ToWgs84(lat, lon)
+        }
+    }
+
 
     fun init() {
         hookLastLocation(classLoader)
@@ -106,9 +134,12 @@ class SystemServicesHooks(
             val packageNames = collectPackageNames(value)
             val spoofedPackage = packageNames.firstOrNull { shouldSpoofPackage(it) }
             if (spoofedPackage != null) {
-                // Deliver a fake location directly to this target registration and exclude it from
-                // the passthrough set so the real location is never pushed to it below.
-                locationsField.set(locationResult, arrayListOf(fakeLocation))
+                val (convLat, convLon) = getConvertedCoordinateForPackage(spoofedPackage, fakeLocation.latitude, fakeLocation.longitude)
+                val localizedFakeLocation = Location(fakeLocation).apply {
+                    latitude = convLat
+                    longitude = convLon
+                }
+                locationsField.set(locationResult, arrayListOf(localizedFakeLocation))
                 deliverLocationToRegistration(value, locationResult)
                 module.log(Log.INFO, tag, "Delivered spoofed provider location to $spoofedPackage.")
             } else {
@@ -192,16 +223,22 @@ class SystemServicesHooks(
 
     private fun interceptCallLocationChanged(chain: Chain): Any? {
         if (PreferencesUtil.getIsPlaying() != true) return chain.proceed()
-        // The Receiver itself carries the caller package, so attribute by inspecting `thisObject`.
-        if (collectPackageNames(chain.thisObject).none { shouldSpoofPackage(it) }) return chain.proceed()
+        val spoofedPackage = collectPackageNames(chain.thisObject).firstOrNull { shouldSpoofPackage(it) } ?: return chain.proceed()
 
         val args = chain.args
         val locationArgIndex = args.indexOfFirst { it is Location }
         if (locationArgIndex == -1) return chain.proceed()
 
         val original = args[locationArgIndex] as? Location
+        val fakeLoc = LocationUtil.createFakeLocation(original)
+        val (convLat, convLon) = getConvertedCoordinateForPackage(spoofedPackage, fakeLoc.latitude, fakeLoc.longitude)
+
         val newArgs = args.toTypedArray()
-        newArgs[locationArgIndex] = LocationUtil.createFakeLocation(original)
+        newArgs[locationArgIndex] = Location(fakeLoc).apply {
+            latitude = convLat
+            longitude = convLon
+        }
+
         module.log(Log.INFO, tag, "Replaced Receiver.callLocationChangedLocked argument.")
         return chain.proceed(newArgs)
     }

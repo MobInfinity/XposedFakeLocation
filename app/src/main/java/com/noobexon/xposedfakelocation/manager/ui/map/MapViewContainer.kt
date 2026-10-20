@@ -21,6 +21,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.noobexon.xposedfakelocation.R
 import com.noobexon.xposedfakelocation.data.DEFAULT_MAP_ZOOM
 import kotlinx.coroutines.flow.Flow
+import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
+import android.os.Build
+import android.webkit.WebSettings
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -79,11 +83,12 @@ fun MapViewContainer(
     onMapZoomChange: (Double) -> Unit,
     onLoadingFinished: () -> Unit,
     onInitialLocationResolved: () -> Unit,
+    isSatellite: Boolean = false
 ) {
     val context = LocalContext.current
 
     // Remember MapView and overlays
-    val mapView = rememberMapView(context)
+    val mapView = rememberMapView(context, isSatellite)
     val userMarker = rememberUserMarker(mapView)
     val locationOverlay = rememberLocationOverlay(context, mapView)
 
@@ -122,15 +127,48 @@ fun MapViewContainer(
  * and the default zoom level. The instance is stable for the lifetime of the composition.
  */
 @Composable
-private fun rememberMapView(context: Context): MapView {
-    return remember {
+private fun rememberMapView(context: Context, isSatellite: Boolean): MapView {
+    val amapTileSource: OnlineTileSourceBase = object : XYTileSource(
+        "AMap", 1, 20, 256, ".png",
+        arrayOf(
+            "https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=",
+            "https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=",
+            "https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=",
+            "https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x="
+        ), "© AutoNavi"
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            return baseUrl + org.osmdroid.util.MapTileIndex.getX(pMapTileIndex) + "&y=" + org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "&z=" + org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex)
+        }
+    }
+
+    val amapSatelliteTileSource: OnlineTileSourceBase = object : XYTileSource(
+        "AMapSatellite", 1, 20, 256, ".png",
+        arrayOf(
+            "https://webst01.is.autonavi.com/appmaptile?style=6&x=",
+            "https://webst02.is.autonavi.com/appmaptile?style=6&x=",
+            "https://webst03.is.autonavi.com/appmaptile?style=6&x=",
+            "https://webst04.is.autonavi.com/appmaptile?style=6&x="
+        ), "© AutoNavi"
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            return baseUrl + org.osmdroid.util.MapTileIndex.getX(pMapTileIndex) + "&y=" + org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "&z=" + org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex)
+        }
+    }
+
+    org.osmdroid.config.Configuration.getInstance().userAgentValue = WebSettings.getDefaultUserAgent(context)
+
+    val mapView = remember {
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
             setBuiltInZoomControls(false)
             setMultiTouchControls(true)
             controller.setZoom(DEFAULT_MAP_ZOOM)
         }
     }
+
+    mapView.setTileSource(if (isSatellite) amapSatelliteTileSource else amapTileSource)
+
+    return mapView
 }
 
 /**

@@ -18,8 +18,8 @@ gson = "2.14.0"
 hiddenapibypass = "6.1"
 coil = "2.7.0"
 
-xposed-api = "101.0.0"
-xposed-service = "101.0.0"
+xposed-api = "102.0.0"
+xposed-service = "102.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

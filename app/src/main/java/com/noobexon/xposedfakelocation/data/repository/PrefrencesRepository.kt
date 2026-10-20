@@ -51,6 +51,7 @@ import com.noobexon.xposedfakelocation.data.KEY_RANDOMIZE_RADIUS
 import com.noobexon.xposedfakelocation.data.KEY_SPEED
 import com.noobexon.xposedfakelocation.data.KEY_SPEED_ACCURACY
 import com.noobexon.xposedfakelocation.data.KEY_TARGET_APPS
+import com.noobexon.xposedfakelocation.data.KEY_TARGET_APP_COORDINATES
 import com.noobexon.xposedfakelocation.data.KEY_THEME_OPTION
 import com.noobexon.xposedfakelocation.data.KEY_USE_ACCURACY
 import com.noobexon.xposedfakelocation.data.KEY_USE_ALTITUDE
@@ -346,6 +347,28 @@ class PreferencesRepository(context: Context) {
             .sorted()
         val json = gson.toJson(normalized)
         editRemote { putString(KEY_TARGET_APPS, json) }
+    }
+
+        fun getTargetAppCoordinatesFlow(): Flow<Map<String, String>> =
+        remoteFlow(KEY_TARGET_APP_COORDINATES, emptyMap()) { parseTargetAppCoordinates(it.getString(KEY_TARGET_APP_COORDINATES, null)) }
+
+    suspend fun saveTargetAppCoordinates(configs: Map<String, String>) {
+        val json = gson.toJson(configs)
+        editRemote { putString(KEY_TARGET_APP_COORDINATES, json) }
+    }
+
+    fun getTargetAppCoordinates(): Map<String, String> =
+        parseTargetAppCoordinates(remotePrefs()?.getString(KEY_TARGET_APP_COORDINATES, null))
+
+    private fun parseTargetAppCoordinates(json: String?): Map<String, String> {
+        if (json.isNullOrBlank()) return emptyMap()
+        return try {
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            gson.fromJson(json, type)
+        } catch (e: JsonSyntaxException) {
+            Log.e(tag, "Error parsing target app coordinates: ${e.message}")
+            emptyMap()
+        }
     }
 
     private fun parseTargetApps(json: String?): Set<String> {

@@ -165,6 +165,7 @@ private fun TargetAppsContent(
     onRefresh: () -> Unit,
     onSetShowUserApps: (Boolean) -> Unit,
     onSetShowSystemApps: (Boolean) -> Unit,
+    onUpdateCoordinateSystem: (String, String) -> Unit = { _, _ -> }
 ) {
     var searchActive by remember { mutableStateOf(false) }
     var filterExpanded by remember { mutableStateOf(false) }
@@ -391,7 +392,8 @@ private fun TargetAppsContent(
                                     TargetAppRow(
                                         app = app,
                                         onToggle = { onToggle(app.packageName) },
-                                        onRelaunch = { onRelaunch(app.packageName) }
+                                        onRelaunch = { onRelaunch(app.packageName) },
+                                        onUpdateCoordinateSystem = { sys -> onUpdateCoordinateSystem(app.packageName, sys) }
                                     )
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                                 }
@@ -424,8 +426,10 @@ private fun TargetAppsContent(
 private fun TargetAppRow(
     app: TargetAppItem,
     onToggle: () -> Unit,
-    onRelaunch: () -> Unit
+    onRelaunch: () -> Unit,
+    onUpdateCoordinateSystem: (String) -> Unit = {}
 ) {
+    var showCoordMenu by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -483,10 +487,32 @@ private fun TargetAppRow(
                     strokeWidth = 2.dp
                 )
             } else {
-                Checkbox(
-                    checked = app.isSelected,
-                    onCheckedChange = { onToggle() }
-                )
+                androidx.compose.foundation.layout.Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                    androidx.compose.foundation.layout.Box {
+                        androidx.compose.material3.Text(text = app.coordinateSystem, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = androidx.compose.ui.Modifier.clickable { showCoordMenu = true })
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showCoordMenu,
+                            onDismissRequest = { showCoordMenu = false }
+                        ) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { androidx.compose.material3.Text("WGS84") },
+                                onClick = { onUpdateCoordinateSystem("WGS84"); showCoordMenu = false }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { androidx.compose.material3.Text("GCJ02") },
+                                onClick = { onUpdateCoordinateSystem("GCJ02"); showCoordMenu = false }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { androidx.compose.material3.Text("BD09") },
+                                onClick = { onUpdateCoordinateSystem("BD09"); showCoordMenu = false }
+                            )
+                        }
+                    }
+                    androidx.compose.material3.Checkbox(
+                        checked = app.isSelected,
+                        onCheckedChange = { onToggle() }
+                    )
+                }
             }
         }
     }

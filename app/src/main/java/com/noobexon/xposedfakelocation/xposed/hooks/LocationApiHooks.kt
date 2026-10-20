@@ -5,6 +5,11 @@ import android.util.Log
 import com.noobexon.xposedfakelocation.xposed.utils.LocationUtil
 import com.noobexon.xposedfakelocation.xposed.utils.PreferencesUtil
 import io.github.libxposed.api.XposedInterface
+import com.noobexon.xposedfakelocation.xposed.utils.CoordinateConverter
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.noobexon.xposedfakelocation.data.KEY_TARGET_APP_COORDINATES
+
 
 /**
  * Installs hooks on the public `android.location.Location` getter methods to intercept
@@ -16,8 +21,31 @@ import io.github.libxposed.api.XposedInterface
  *
  * MSL altitude hooks are only installed on API 34+ ([Build.VERSION_CODES.UPSIDE_DOWN_CAKE]).
  */
-class LocationApiHooks(private val module: XposedInterface, private val classLoader: ClassLoader) {
+class LocationApiHooks(private val module: XposedInterface, private val classLoader: ClassLoader, private val packageName: String) {
     private val tag = "[LocationApiHooks]"
+    private var cachedMap: Map<String, String>? = null
+    private var lastJson: String? = null
+    private fun getConvertedCoordinate(lat: Double, lon: Double): Pair<Double, Double> {
+        val prefs = PreferencesUtil.getPrefs() ?: return Pair(lat, lon)
+        val json = prefs.getString(KEY_TARGET_APP_COORDINATES, null) ?: return Pair(lat, lon)
+        if (json != lastJson || cachedMap == null) {
+            try {
+                val type = object : TypeToken<Map<String, String>>() {}.type
+                cachedMap = Gson().fromJson(json, type)
+                lastJson = json
+            } catch (e: Exception) {
+                cachedMap = emptyMap()
+            }
+        }
+        val map = cachedMap ?: emptyMap()
+        val sysStr = map[packageName] ?: "WGS84"
+        return when (sysStr) {
+            "GCJ02" -> Pair(lat, lon)
+            "BD09" -> CoordinateConverter.gcj02ToBd09(lat, lon)
+            else -> CoordinateConverter.gcj02ToWgs84(lat, lon)
+        }
+    }
+
 
     /** Installs all `android.location.Location` getter hooks. */
     fun init() {
@@ -34,8 +62,8 @@ class LocationApiHooks(private val module: XposedInterface, private val classLoa
         runCatching {
             val locationClass = Class.forName("android.location.Location", false, classLoader)
             with(locationClass) {
-                hookMethod("getLatitude", enabled = { true }) { LocationUtil.latitude }
-                hookMethod("getLongitude", enabled = { true }) { LocationUtil.longitude }
+                hookMethod("getLatitude", enabled = { true }) { getConvertedCoordinate(LocationUtil.latitude, LocationUtil.longitude).first }
+                hookMethod("getLongitude", enabled = { true }) { getConvertedCoordinate(LocationUtil.latitude, LocationUtil.longitude).second }
                 hookMethod("getAccuracy", enabled = { PreferencesUtil.getUseAccuracy() == true }) { LocationUtil.accuracy }
                 hookMethod("getAltitude", enabled = { PreferencesUtil.getUseAltitude() == true }) { LocationUtil.altitude }
                 hookMethod("getVerticalAccuracyMeters", enabled = { PreferencesUtil.getUseVerticalAccuracy() == true }) { LocationUtil.verticalAccuracy }

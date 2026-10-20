@@ -43,7 +43,8 @@ data class TargetAppItem(
     val isSystemApp: Boolean = false,
     val isSelected: Boolean = false,
     val isPending: Boolean = false,
-    val isRelaunching: Boolean = false
+    val isRelaunching: Boolean = false,
+    val coordinateSystem: String = "WGS84"
 )
 
 /**
@@ -165,6 +166,15 @@ class TargetAppsViewModel(application: Application) : AndroidViewModel(applicati
      * state. No-ops if a scope request for [packageName] is already pending. Emits
      * [TargetAppsEvent.ModuleNotActive] if the Xposed service is not connected.
      */
+    fun updateCoordinateSystem(packageName: String, coordinateSystem: String) {
+        viewModelScope.launch {
+            val currentConfigs = preferencesRepository.getTargetAppCoordinates().toMutableMap()
+            currentConfigs[packageName] = coordinateSystem
+            preferencesRepository.saveTargetAppCoordinates(currentConfigs)
+            refreshScope()
+        }
+    }
+
     fun toggleApp(packageName: String) {
         if (_uiState.value.pendingPackages.contains(packageName)) return
 
@@ -386,7 +396,8 @@ class TargetAppsViewModel(application: Application) : AndroidViewModel(applicati
                 app.copy(
                     isSelected = selectedPackages.contains(app.packageName),
                     isPending = pendingPackages.contains(app.packageName),
-                    isRelaunching = relaunchingPackages.contains(app.packageName)
+                    isRelaunching = relaunchingPackages.contains(app.packageName),
+                    coordinateSystem = preferencesRepository.getTargetAppCoordinates()[app.packageName] ?: "WGS84"
                 )
             }
         )

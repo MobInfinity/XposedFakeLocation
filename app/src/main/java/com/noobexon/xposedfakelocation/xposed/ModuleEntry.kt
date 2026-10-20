@@ -105,7 +105,7 @@ class ModuleEntry : XposedModule() {
 
     /** Installs [LocationApiHooks], [LocationManagerApiHooks], and [AppWifiHooks] into the target app process. */
     private fun initHooks(classLoader: ClassLoader, packageName: String) {
-        LocationApiHooks(this, classLoader).init()
+        LocationApiHooks(this, classLoader, packageName).init()
         LocationManagerApiHooks(this, classLoader).init()
         AppWifiHooks(this, classLoader, packageName).init()
     }

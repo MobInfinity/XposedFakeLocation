@@ -68,7 +68,9 @@ object PreferencesUtil {
     @Volatile var logger: ((Int, String, String) -> Unit)? = null
     private fun log(msg: String, priority: Int = Log.INFO) = logger?.invoke(priority, TAG, msg)
 
-    @Volatile private var preferences: SharedPreferences? = null
+    @Volatile var preferences: SharedPreferences? = null
+    fun getPrefs(): SharedPreferences? = preferences
+
 
     /**
      * IMPORTANT: must be held as a strong reference. [SharedPreferences] registers listeners
